@@ -20,7 +20,7 @@ func TestGet() {
 	if err != nil {
 		panic(err)
 	}
-    fmt.Printf("text: %v\n", result.Text())
+	fmt.Printf("text: %v\n", result.Text())
 	fmt.Printf("json: %v\n", m)
 }
 ```
