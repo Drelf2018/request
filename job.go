@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 var ErrType = errors.New("数据类型错误")
@@ -15,15 +18,50 @@ var ErrType = errors.New("数据类型错误")
 type M map[string]string
 
 // gorm 读取
+//
+// 参考: https://github.com/go-gorm/datatypes/blob/master/json_map.go
 func (m *M) Scan(val any) error {
-	if val, ok := val.([]byte); ok {
-		return json.Unmarshal(val, m)
+	if val == nil {
+		*m = make(M)
+		return nil
 	}
-	return ErrType
+	var ba []byte
+	switch v := val.(type) {
+	case []byte:
+		ba = v
+	case string:
+		ba = []byte(v)
+	default:
+		return ErrType
+	}
+	return json.Unmarshal(ba, m)
 }
 
 func (m M) Value() (driver.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
 	return json.Marshal(m)
+}
+
+// GormDataType gorm common data type
+func (m M) GormDataType() string {
+	return "jsonmap"
+}
+
+// GormDBDataType gorm db data type
+func (M) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return "JSON"
+	case "mysql":
+		return "JSON"
+	case "postgres":
+		return "JSONB"
+	case "sqlserver":
+		return "NVARCHAR(MAX)"
+	}
+	return ""
 }
 
 // url.Values 赋值
