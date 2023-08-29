@@ -64,10 +64,22 @@ func (M) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return ""
 }
 
+type Values interface {
+	Set(string, string)
+	Add(string, string)
+}
+
 // url.Values 赋值
-func (m M) CopyTo(vs interface{ Set(string, string) }) {
+func (m M) CopyTo(vs Values) {
 	for k, v := range m {
 		vs.Set(k, v)
+	}
+}
+
+// url.Values 添加
+func (m M) AddTo(vs Values) {
+	for k, v := range m {
+		vs.Add(k, v)
 	}
 }
 
@@ -100,8 +112,8 @@ type Job struct {
 	Headers M `form:"headers" yaml:"headers" json:"headers"`
 	// Cookies
 	Cookies M `form:"cookies" yaml:"cookies" json:"cookies"`
-	// Transport
-	Transport http.RoundTripper `form:"-" yaml:"-" json:"-" gorm:"-"`
+	// Client
+	Client http.Client `form:"-" yaml:"-" json:"-" gorm:"-"`
 }
 
 // 发送请求
@@ -130,14 +142,24 @@ func (job *Job) Request() (r *Result) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37")
 	job.Headers.CopyTo(req.Header)
 
-	// 新建客户端
-	client := &http.Client{Transport: job.Transport, Jar: job.Cookies}
-	resp, err := client.Do(req)
+	// 添加 Cookies
+	if len(job.Cookies) != 0 {
+		if job.Client.Jar == nil {
+			job.Client.Jar = job.Cookies
+		} else {
+			cookieURL, _ := url.Parse(job.Url)
+			job.Client.Jar.SetCookies(cookieURL, job.Cookies.Cookies(nil))
+		}
+	}
+
+	// 正式请求
+	resp, err := job.Client.Do(req)
 	if r.hasErr(err) {
 		return
 	}
-	defer resp.Body.Close()
 
+	// 读取内容
+	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if r.hasErr(err) {
 		return

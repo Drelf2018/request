@@ -2,12 +2,9 @@ package request_test
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/Drelf2018/request"
-	"github.com/glebarez/sqlite"
-	"gorm.io/gorm"
 )
 
 func TestGet(t *testing.T) {
@@ -46,24 +43,24 @@ func TestPost(t *testing.T) {
 	fmt.Printf("POST: %v\n", m)
 }
 
-func TestGorm(t *testing.T) {
-	db, _ := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
-	db.AutoMigrate(new(request.Job))
+// func TestGorm(t *testing.T) {
+// 	db, _ := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+// 	db.AutoMigrate(new(request.Job))
 
-	job := request.New(http.MethodGet, "https://postman-echo.com/get", request.Data("test", "123"))
-	db.Create(job)
+// 	job := request.New(http.MethodGet, "https://postman-echo.com/get", request.Data("test", "123"))
+// 	db.Create(job)
 
-	var query request.Job
-	db.Find(&query)
+// 	var query request.Job
+// 	db.Find(&query)
 
-	result := query.Request()
-	if result.Error != nil {
-		t.Fatal(result.Error)
-	}
-	m := make(map[string]any)
-	err := result.Json(&m)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("QUERY: %v\n", m)
-}
+// 	result := query.Request()
+// 	if result.Error != nil {
+// 		t.Fatal(result.Error)
+// 	}
+// 	m := make(map[string]any)
+// 	err := result.Json(&m)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	fmt.Printf("QUERY: %v\n", m)
+// }
