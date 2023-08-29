@@ -1,6 +1,7 @@
 package request
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 )
@@ -32,4 +33,9 @@ func (res *Result) Text() string {
 // 解析结果为 json
 func (res *Result) Json(data any) error {
 	return json.Unmarshal(res.Content, data)
+}
+
+// 重新获取 io.Reader
+func (res *Result) Reader() *bytes.Reader {
+	return bytes.NewReader(res.Content)
 }
