@@ -139,5 +139,5 @@ func (job *Job) Request() (r *Result) {
 	if r.hasErr(err) {
 		return
 	}
-	return &Result{resp.StatusCode, body, nil}
+	return &Result{resp, body, nil}
 }

@@ -1,11 +1,14 @@
 package request
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 // 结果
 type Result struct {
-	// 状态码
-	Code int
+	// 原结果
+	*http.Response
 	// 内容
 	Content []byte
 	// 错误
