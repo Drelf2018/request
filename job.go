@@ -124,8 +124,9 @@ func (job *Job) Request() (r *Result) {
 	}
 
 	// 添加请求头
-	job.Headers.CopyTo(req.Header)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37")
+	job.Headers.CopyTo(req.Header)
 
 	// 新建客户端
 	client := &http.Client{Jar: job.Cookies}
