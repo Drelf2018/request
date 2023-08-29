@@ -65,9 +65,9 @@ func (M) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // url.Values 赋值
-func (m M) CopyTo(vs interface{ Add(string, string) }) {
+func (m M) CopyTo(vs interface{ Set(string, string) }) {
 	for k, v := range m {
-		vs.Add(k, v)
+		vs.Set(k, v)
 	}
 }
 
@@ -100,6 +100,8 @@ type Job struct {
 	Headers M `form:"headers" yaml:"headers" json:"headers"`
 	// Cookies
 	Cookies M `form:"cookies" yaml:"cookies" json:"cookies"`
+	// Transport
+	Transport http.RoundTripper `form:"-" yaml:"-" json:"-" gorm:"-"`
 }
 
 // 发送请求
@@ -129,7 +131,7 @@ func (job *Job) Request() (r *Result) {
 	job.Headers.CopyTo(req.Header)
 
 	// 新建客户端
-	client := &http.Client{Jar: job.Cookies}
+	client := &http.Client{Transport: job.Transport, Jar: job.Cookies}
 	resp, err := client.Do(req)
 	if r.hasErr(err) {
 		return

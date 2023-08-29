@@ -35,7 +35,7 @@ func Cookie(cookie ...string) Option {
 
 // 构造函数
 func New(method, url string, options ...Option) *Job {
-	job := Job{method, url, make(M), make(M), make(M)}
+	job := Job{method, url, make(M), make(M), make(M), nil}
 	for _, op := range options {
 		op(&job)
 	}
