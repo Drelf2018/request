@@ -100,6 +100,14 @@ func (m M) Cookies(u *url.URL) (r []*http.Cookie) {
 	return
 }
 
+var HEADERS = M{
+	"Accept-Language":           "zh-CN,zh;q=0.9",
+	"Accept-Encoding":           "gzip, deflate, br",
+	"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+	"Upgrade-Insecure-Requests": "1",
+	"User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37",
+}
+
 // 请求任务
 type Job struct {
 	// GET 或 POST
