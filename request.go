@@ -2,6 +2,8 @@ package request
 
 import (
 	"net/http"
+
+	"golang.org/x/exp/maps"
 )
 
 type Option func(*Job)
@@ -33,6 +35,13 @@ func Header(header ...string) Option {
 func Headers(headers M) Option {
 	return func(job *Job) {
 		job.Headers = headers
+	}
+}
+
+func Referer(referer string) Option {
+	return func(job *Job) {
+		maps.Copy(job.Headers, HEADERS)
+		job.Headers["Referer"] = referer
 	}
 }
 
