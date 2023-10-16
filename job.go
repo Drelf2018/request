@@ -125,7 +125,7 @@ type Job struct {
 }
 
 // 发送请求
-func (job *Job) Request() (r *Result) {
+func (job *Job) Request() *Result {
 	// 添加 POST 参数
 	ploady := make(url.Values)
 	if job.Method == http.MethodPost {
@@ -134,8 +134,8 @@ func (job *Job) Request() (r *Result) {
 
 	// 新建请求
 	req, err := http.NewRequest(job.Method, job.Url, strings.NewReader(ploady.Encode()))
-	if r.hasErr(err) {
-		return
+	if err != nil {
+		return &Result{err: err}
 	}
 
 	// 添加 GET 参数
@@ -162,15 +162,15 @@ func (job *Job) Request() (r *Result) {
 
 	// 正式请求
 	resp, err := job.Client.Do(req)
-	if r.hasErr(err) {
-		return
+	if err != nil {
+		return &Result{err: err}
 	}
 
 	// 读取内容
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	if r.hasErr(err) {
-		return
+	if err != nil {
+		return &Result{err: err}
 	}
 	return &Result{resp, body, nil}
 }

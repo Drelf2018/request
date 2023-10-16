@@ -14,8 +14,8 @@ func TestGet(t *testing.T) {
 		request.Cookie("buvid", "somebase64"),
 		request.Header("auth", "admin"),
 	)
-	if result.Error != nil {
-		t.Fatal(result.Error)
+	if result.Error() != nil {
+		t.Fatal(result.Error())
 	}
 	m := make(map[string]any)
 	err := result.Json(&m)
@@ -32,8 +32,8 @@ func TestPost(t *testing.T) {
 		request.Cookie("buvid", "somebase64"),
 		request.Header("auth", "admin"),
 	)
-	if result.Error != nil {
-		t.Fatal(result.Error)
+	if result.Error() != nil {
+		t.Fatal(result.Error())
 	}
 	m := make(map[string]any)
 	err := result.Json(&m)
