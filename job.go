@@ -8,14 +8,28 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 )
 
-var ErrType = errors.New("数据类型错误")
+var (
+	ErrType    = errors.New("failed to unmarshal JSONB value")
+	ErrOddArgs = errors.New("odd number of parameters passed in")
+)
 
 type M map[string]string
+
+func (m M) Insert(key, val string) {
+	m[strings.TrimSpace(key)] = strings.TrimSpace(val)
+}
+
+func (m M) Inserts(s ...string) {
+	l := len(s)
+	if l&1 == 1 {
+		panic(ErrOddArgs)
+	}
+	for i := 0; i < l; i += 2 {
+		m.Insert(s[i], s[i+1])
+	}
+}
 
 // gorm 读取
 //
@@ -46,22 +60,7 @@ func (m M) Value() (driver.Value, error) {
 
 // GormDataType gorm common data type
 func (m M) GormDataType() string {
-	return "jsonmap"
-}
-
-// GormDBDataType gorm db data type
-func (M) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "sqlite":
-		return "JSON"
-	case "mysql":
-		return "JSON"
-	case "postgres":
-		return "JSONB"
-	case "sqlserver":
-		return "NVARCHAR(MAX)"
-	}
-	return ""
+	return "json"
 }
 
 type Values interface {
@@ -101,11 +100,10 @@ func (m M) Cookies(u *url.URL) (r []*http.Cookie) {
 }
 
 var HEADERS = M{
-	"Accept-Language":           "zh-CN,zh;q=0.9",
-	"Accept-Encoding":           "gzip, deflate, br",
-	"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-	"Upgrade-Insecure-Requests": "1",
-	"User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37",
+	"Accept-Language": "zh-CN,zh;q=0.9",
+	"Accept-Encoding": "gzip, deflate, br",
+	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+	"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37",
 }
 
 // 请求任务
@@ -147,7 +145,7 @@ func (job *Job) Request() *Result {
 
 	// 添加请求头
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37")
+	req.Header.Set("User-Agent", HEADERS["User-Agent"])
 	job.Headers.CopyTo(req.Header)
 
 	// 添加 Cookies
@@ -173,4 +171,11 @@ func (job *Job) Request() *Result {
 		return &Result{err: err}
 	}
 	return &Result{resp, body, nil}
+}
+
+func (job *Job) ParseCookies(s string) {
+	for _, cookie := range strings.Split(s, ";") {
+		data := strings.Split(cookie, "=")
+		job.Cookies.Insert(data[0], data[1])
+	}
 }
