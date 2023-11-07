@@ -122,6 +122,14 @@ type Job struct {
 	Client http.Client `form:"-" yaml:"-" json:"-" gorm:"-"`
 }
 
+// 解析 cookies
+func (job *Job) ParseCookies(s string) {
+	for _, cookie := range strings.Split(s, ";") {
+		data := strings.Split(cookie, "=")
+		job.Cookies.Insert(data[0], data[1])
+	}
+}
+
 // 发送请求
 func (job *Job) Request() *Result {
 	// 添加 POST 参数
@@ -173,9 +181,18 @@ func (job *Job) Request() *Result {
 	return &Result{resp, body, nil}
 }
 
-func (job *Job) ParseCookies(s string) {
-	for _, cookie := range strings.Split(s, ";") {
-		data := strings.Split(cookie, "=")
-		job.Cookies.Insert(data[0], data[1])
+func (job *Job) RequestWithJob() *ResultWithJob {
+	result := job.Request()
+	r := &ResultWithJob{Job: *job}
+	if err := result.Error(); err != nil {
+		r.Error = err
+	} else {
+		m := make(map[string]any)
+		if result.Json(&m) == nil {
+			r.Data = m
+		} else {
+			r.Content = result.Text()
+		}
 	}
+	return r
 }

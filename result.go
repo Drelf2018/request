@@ -40,3 +40,10 @@ func (r *Result) Reader() *bytes.Reader {
 func (r *Result) Write(name string, perm os.FileMode) error {
 	return os.WriteFile(name, r.Content, perm)
 }
+
+type ResultWithJob struct {
+	Job     Job            `json:"job"`
+	Error   error          `json:"error,omitempty"`
+	Data    map[string]any `json:"data,omitempty"`
+	Content string         `json:"content,omitempty"`
+}
