@@ -26,9 +26,7 @@ func Headers(headers M) Option {
 
 func Referer(referer string) Option {
 	return func(job *Job) {
-		for k, v := range HEADERS {
-			job.Headers[k] = v
-		}
+		HEADERS.SetTo(job.Headers)
 		job.Headers["Referer"] = referer
 	}
 }
@@ -68,4 +66,10 @@ func Get(url string, options ...Option) *Result {
 // 简化 Post 请求
 func Post(url string, options ...Option) *Result {
 	return New(http.MethodPost, url, options...).Request()
+}
+
+// 简化结构体获取
+func Json[T any](job *Job) (out T) {
+	job.Request().Json(&out)
+	return
 }

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 // 结果
@@ -27,8 +30,13 @@ func (r *Result) Text() string {
 }
 
 // 解析结果为 json
-func (res *Result) Json(data any) error {
-	return json.Unmarshal(res.Content, data)
+func (r *Result) Json(out any) error {
+	return json.Unmarshal(r.Content, out)
+}
+
+// 解析结果为 yaml
+func (r *Result) Yaml(out any) error {
+	return yaml.Unmarshal(r.Content, out)
 }
 
 // 重新获取 io.Reader
@@ -38,10 +46,26 @@ func (r *Result) Reader() *bytes.Reader {
 
 // 写出文件
 func (r *Result) Write(name string, perm os.FileMode) error {
+	path := filepath.Dir(name)
+	err := os.MkdirAll(path, perm)
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(name, r.Content, perm)
 }
 
-type ResultWithJob struct {
+// 写出文件到指定目录
+func (r *Result) WriteToDir(path string, perm os.FileMode) error {
+	base := filepath.Base(r.Response.Request.URL.Path)
+	return r.Write(filepath.Join(path, base), perm)
+}
+
+// 写出到指定层级下
+func (r *Result) WriteWithPath(root string, perm os.FileMode) error {
+	return r.Write(filepath.Join(root, r.Response.Request.URL.Path), perm)
+}
+
+type JobResult struct {
 	Job     Job            `json:"job"`
 	Error   error          `json:"error,omitempty"`
 	Data    map[string]any `json:"data,omitempty"`

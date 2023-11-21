@@ -3,7 +3,6 @@ package request_test
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/Drelf2018/request"
@@ -31,17 +30,9 @@ type ApiData struct {
 }
 
 func TestBili(t *testing.T) {
-	api := request.New(
-		http.MethodGet,
-		"https://api.bilibili.com/x/v2/reply",
-		request.Datas(request.M{"pn": "1", "type": "17", "oid": "643451139714449427", "sort": "0"}),
-	)
-	resp := api.Request()
-	if resp.Error() != nil {
-		t.Fatal(resp.Error())
-	}
-	var data ApiData
-	resp.Json(&data)
+	api := request.New("get", "https://api.bilibili.com/x/v2/reply")
+	api.Data = request.M{"pn": "1", "type": "17", "oid": "643451139714449427", "sort": "0"}
+	data := request.Json[ApiData](api)
 	for _, r := range data.Data.Replies {
 		t.Log(r)
 	}
@@ -55,7 +46,7 @@ func TestGet(t *testing.T) {
 		request.Cookie("buvid", "somebase64"),
 		request.Header("auth", "admin"),
 	)
-	b, _ := json.MarshalIndent(job.RequestWithJob(), "", "\t")
+	b, _ := json.MarshalIndent(job.Test(), "", "\t")
 	fmt.Printf("%v\n", string(b))
 }
 
@@ -85,7 +76,7 @@ func TestGet(t *testing.T) {
 // 	if resp.Error() != nil {
 // 		t.Fatal(resp.Error())
 // 	}
-// 	err := resp.Write("face.jpg", os.ModePerm)
+// 	err := resp.WriteWithPath("./public", os.ModePerm)
 // 	if err != nil {
 // 		t.Fatal(err)
 // 	}

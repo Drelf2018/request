@@ -1,110 +1,11 @@
 package request
 
 import (
-	"database/sql/driver"
-	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 )
-
-var (
-	ErrType    = errors.New("failed to unmarshal JSONB value")
-	ErrOddArgs = errors.New("odd number of parameters passed in")
-)
-
-type M map[string]string
-
-func (m M) Insert(key, val string) {
-	m[strings.TrimSpace(key)] = strings.TrimSpace(val)
-}
-
-func (m M) Inserts(s ...string) {
-	l := len(s)
-	if l&1 == 1 {
-		panic(ErrOddArgs)
-	}
-	for i := 0; i < l; i += 2 {
-		m.Insert(s[i], s[i+1])
-	}
-}
-
-// gorm 读取
-//
-// 参考: https://github.com/go-gorm/datatypes/blob/master/json_map.go
-func (m *M) Scan(val any) error {
-	if val == nil {
-		*m = make(M)
-		return nil
-	}
-	var ba []byte
-	switch v := val.(type) {
-	case []byte:
-		ba = v
-	case string:
-		ba = []byte(v)
-	default:
-		return ErrType
-	}
-	return json.Unmarshal(ba, m)
-}
-
-func (m M) Value() (driver.Value, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return json.Marshal(m)
-}
-
-// GormDataType gorm common data type
-func (m M) GormDataType() string {
-	return "json"
-}
-
-type Values interface {
-	Set(string, string)
-	Add(string, string)
-}
-
-// url.Values 赋值
-func (m M) CopyTo(vs Values) {
-	for k, v := range m {
-		vs.Set(k, v)
-	}
-}
-
-// url.Values 添加
-func (m M) AddTo(vs Values) {
-	for k, v := range m {
-		vs.Add(k, v)
-	}
-}
-
-// CookieJar 实现
-func (m M) SetCookies(u *url.URL, cookies []*http.Cookie) {
-	for _, c := range cookies {
-		m[c.Name] = c.Value
-	}
-}
-
-func (m M) Cookies(u *url.URL) (r []*http.Cookie) {
-	r = make([]*http.Cookie, len(m))
-	i := 0
-	for k, v := range m {
-		r[i] = &http.Cookie{Name: k, Value: v}
-		i++
-	}
-	return
-}
-
-var HEADERS = M{
-	"Accept-Language": "zh-CN,zh;q=0.9",
-	"Accept-Encoding": "gzip, deflate, br",
-	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-	"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37",
-}
 
 // 请求任务
 type Job struct {
@@ -132,29 +33,32 @@ func (job *Job) ParseCookies(s string) {
 
 // 发送请求
 func (job *Job) Request() *Result {
+	// 大写请求方式
+	method := strings.ToUpper(job.Method)
+
 	// 添加 POST 参数
-	ploady := make(url.Values)
-	if job.Method == http.MethodPost {
-		job.Data.CopyTo(ploady)
+	payload := make(url.Values)
+	if method == http.MethodPost {
+		job.Data.SetTo(payload)
 	}
 
 	// 新建请求
-	req, err := http.NewRequest(job.Method, job.Url, strings.NewReader(ploady.Encode()))
+	req, err := http.NewRequest(method, job.Url, strings.NewReader(payload.Encode()))
 	if err != nil {
 		return &Result{err: err}
 	}
 
 	// 添加 GET 参数
-	if job.Method == http.MethodGet {
+	if method == http.MethodGet {
 		q := req.URL.Query()
-		job.Data.CopyTo(q)
+		job.Data.SetTo(q)
 		req.URL.RawQuery = q.Encode()
 	}
 
 	// 添加请求头
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("User-Agent", HEADERS["User-Agent"])
-	job.Headers.CopyTo(req.Header)
+	job.Headers.SetTo(req.Header)
 
 	// 添加 Cookies
 	if len(job.Cookies) != 0 {
@@ -181,12 +85,19 @@ func (job *Job) Request() *Result {
 	return &Result{resp, body, nil}
 }
 
-func (job *Job) RequestWithJob() *ResultWithJob {
+func (job Job) Fetch(url string) *Result {
+	job.Url = url
+	return job.Request()
+}
+
+func (job *Job) Error() error {
+	return job.Request().err
+}
+
+func (job Job) Test() *JobResult {
 	result := job.Request()
-	r := &ResultWithJob{Job: *job}
-	if err := result.Error(); err != nil {
-		r.Error = err
-	} else {
+	r := &JobResult{Job: job, Error: result.err}
+	if result.err == nil {
 		m := make(map[string]any)
 		if result.Json(&m) == nil {
 			r.Data = m
