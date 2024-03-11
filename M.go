@@ -1,84 +1,75 @@
 package request
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
-var HEADERS = M{
+const UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37"
+
+var UserAgentHeader = M{"User-Agent": UserAgent}
+var Headers = M{
 	"Accept-Language": "zh-CN,zh;q=0.9",
 	"Accept-Encoding": "gzip, deflate, br",
 	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-	"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.37",
+	"User-Agent":      UserAgent,
 }
 
 var (
-	ErrType    = errors.New("failed to unmarshal JSONB value")
-	ErrOddArgs = errors.New("odd number of parameters passed in")
+	ErrType    = errors.New("request: failed to unmarshal JSONB value")
+	ErrOddArgs = errors.New("request: odd number of parameters passed in")
 )
 
 type M map[string]string
-
-func (m M) Any(k string, v any) error {
-	b, err := json.Marshal(v)
-	m[k] = string(b)
-	return err
-}
 
 func (m M) Set(k, v string) {
 	m[k] = v
 }
 
-// url.Values 赋值
-func (m M) SetTo(p interface{ Set(string, string) }) {
-	for k, v := range m {
-		p.Set(k, v)
+func (m M) SetTrimmed(k, v string) {
+	m[strings.TrimSpace(k)] = strings.TrimSpace(v)
+}
+
+func (m M) SetAny(k string, v any) error {
+	b, err := json.Marshal(v)
+	m[k] = string(b)
+	return err
+}
+
+func (m M) SetAll(s ...string) error {
+	l := len(s)
+	if l&1 == 1 {
+		return ErrOddArgs
+	}
+	for i := 0; i < l; i += 2 {
+		m.SetTrimmed(s[i], s[i+1])
+	}
+	return nil
+}
+
+func (m M) SetMap(p M) {
+	for k, v := range p {
+		m[k] = v
 	}
 }
 
 func (m M) Add(k, v string) {
-	m[k] = m[k] + v
-}
-
-// url.Values 添加
-func (m M) AddTo(p interface{ Add(string, string) }) {
-	for k, v := range m {
-		p.Add(k, v)
-	}
+	m[k] += v
 }
 
 func (m M) Del(k string) {
 	delete(m, k)
 }
 
-func (m M) Copy(p M) {
-	for k, v := range m {
-		p[k] = v
-	}
-}
-
-func (m M) New() (p M) {
+func (m M) Clone() (p M) {
 	p = make(M)
-	m.Copy(p)
+	p.SetMap(m)
 	return
-}
-
-func (m M) Insert(k, v string) {
-	m[strings.TrimSpace(k)] = strings.TrimSpace(v)
-}
-
-func (m M) Inserts(s ...string) {
-	l := len(s)
-	if l&1 == 1 {
-		panic(ErrOddArgs)
-	}
-	for i := 0; i < l; i += 2 {
-		m.Insert(s[i], s[i+1])
-	}
 }
 
 // gorm 读取
@@ -109,20 +100,51 @@ func (m M) Value() (driver.Value, error) {
 }
 
 // GormDataType gorm common data type
-func (M) GormDataType() string {
-	return "json"
+func (m M) GormDataType() string {
+	return "jsonmap"
 }
 
-// CookieJar 实现
-func (m M) SetCookies(_ *url.URL, cookies []*http.Cookie) {
-	for _, c := range cookies {
-		m[c.Name] = c.Value
-	}
-}
-
-func (m M) Cookies(_ *url.URL) (cookies []*http.Cookie) {
+func (m M) Buffer() *bytes.Buffer {
+	l := len(m)
+	b := new(bytes.Buffer)
 	for k, v := range m {
-		cookies = append(cookies, &http.Cookie{Name: k, Value: v})
+		l--
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(v)
+		if l != 0 {
+			b.WriteByte('&')
+		}
 	}
+	return b
+}
+
+func (m M) Read(p []byte) (n int, err error) {
+	n, _ = m.Buffer().Read(p)
+	err = io.EOF
 	return
 }
+
+func (m M) Encode() string {
+	return m.Buffer().String()
+}
+
+func (m M) WriteHeader(header http.Header) {
+	for k, v := range m {
+		header.Set(k, v)
+	}
+}
+
+func (m M) Data(job *Job) {
+	job.SetData(m)
+}
+
+func (m M) Query(job *Job) {
+	job.SetQuery(m)
+}
+
+func (m M) Header(job *Job) {
+	job.SetHeader(m)
+}
+
+var _ ScanValuer = new(M)

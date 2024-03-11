@@ -1,109 +1,115 @@
 package request
 
 import (
-	"io"
+	"context"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 // 请求任务
 type Job struct {
-	// GET 或 POST
-	Method string `form:"method" yaml:"method" json:"method"`
-	// 请求网址
-	Url string `form:"url" yaml:"url" json:"url"`
-	// 附带数据
-	Data M `form:"data" yaml:"data" json:"data"`
-	// 请求头
-	Headers M `form:"headers" yaml:"headers" json:"headers"`
-	// Cookies
-	Cookies M `form:"cookies" yaml:"cookies" json:"cookies"`
-	// Client
-	Client http.Client `form:"-" yaml:"-" json:"-" gorm:"-"`
+	Method string      `form:"method" yaml:"method" json:"method"`
+	Url    string      `form:"url"    yaml:"url"    json:"url"`
+	Data   M           `form:"data"   yaml:"data"   json:"data"`
+	Query  M           `form:"query"  yaml:"query"  json:"query"`
+	Header M           `form:"header" yaml:"header" json:"header"`
+	Cookie *Cookie     `form:"cookie" yaml:"cookie" json:"cookie"`
+	Client http.Client `form:"-"      yaml:"-"      json:"-" gorm:"-"`
 }
 
-// 解析 cookies
-func (job *Job) ParseCookies(s string) {
-	for _, cookie := range strings.Split(s, ";") {
-		data := strings.Split(cookie, "=")
-		job.Cookies.Insert(data[0], data[1])
+func (job *Job) SetData(data M) *Job {
+	job.Data = data
+	return job
+}
+
+func (job *Job) SetQuery(query M) *Job {
+	job.Query = query
+	return job
+}
+
+func (job *Job) SetHeader(header M) *Job {
+	job.Header = header
+	return job
+}
+
+func (job *Job) SetReferer(referer string) *Job {
+	job.Header["Referer"] = referer
+	return job
+}
+
+func (job *Job) SetCookie(cookie string) *Job {
+	job.Cookie = &Cookie{cookie}
+	return job
+}
+
+func (job *Job) setCookie() {
+	if job.Cookie == nil {
+		return
 	}
+	if job.Client.Jar == nil {
+		job.Client.Jar = job.Cookie
+		return
+	}
+	cookieURL, _ := url.Parse(job.Url)
+	job.Client.Jar.SetCookies(cookieURL, job.Cookie.Cookies(cookieURL))
 }
 
 // 发送请求
-func (job *Job) Request() *Result {
-	// 大写请求方式
-	method := strings.ToUpper(job.Method)
-
-	// 添加 POST 参数
-	payload := make(url.Values)
-	if method == http.MethodPost {
-		job.Data.SetTo(payload)
-	}
-
-	// 新建请求
-	req, err := http.NewRequest(method, job.Url, strings.NewReader(payload.Encode()))
+func (job *Job) DoWithContext(ctx ...context.Context) *Response {
+	req, err := job.Request()
 	if err != nil {
-		return &Result{err: err}
+		return job.error(err)
 	}
-
-	// 添加 GET 参数
-	if method == http.MethodGet {
-		q := req.URL.Query()
-		job.Data.SetTo(q)
-		req.URL.RawQuery = q.Encode()
+	for _, c := range ctx {
+		req = req.WithContext(c)
 	}
-
-	// 添加请求头
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", HEADERS["User-Agent"])
-	job.Headers.SetTo(req.Header)
-
-	// 添加 Cookies
-	if len(job.Cookies) != 0 {
-		if job.Client.Jar == nil {
-			job.Client.Jar = job.Cookies
-		} else {
-			cookieURL, _ := url.Parse(job.Url)
-			job.Client.Jar.SetCookies(cookieURL, job.Cookies.Cookies(nil))
-		}
-	}
-
-	// 正式请求
+	job.setCookie()
 	resp, err := job.Client.Do(req)
 	if err != nil {
-		return &Result{err: err}
+		return job.error(err)
 	}
+	return job.succeed(resp)
+}
 
-	// 读取内容
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+// 发送请求
+func (job *Job) Do() *Response {
+	return job.DoWithContext()
+}
+
+func (job *Job) Request() (req *http.Request, err error) {
+	req, err = http.NewRequest(job.Method, job.Url, job.Data)
 	if err != nil {
-		return &Result{err: err}
+		return
 	}
-	return &Result{resp, body, nil}
-}
-
-func (job Job) Fetch(url string) *Result {
-	job.Url = url
-	return job.Request()
-}
-
-func (job *Job) Error() error {
-	return job.Request().err
-}
-
-func (job Job) Test() *JobResult {
-	result := job.Request()
-	r := &JobResult{Job: job, Error: result.err}
-	if result.err == nil {
-		m := make(map[string]any)
-		if result.Json(&m) == nil {
-			r.Data = m
-		} else {
-			r.Content = result.Text()
-		}
+	if job.Query != nil {
+		req.URL.RawQuery = job.Query.Encode()
 	}
-	return r
+	if job.Header != nil {
+		job.Header.WriteHeader(req.Header)
+	}
+	return
+}
+
+func (job *Job) succeed(resp *http.Response) *Response {
+	return &Response{Response: resp, Job: job}
+}
+
+func (job *Job) error(err error) *Response {
+	return &Response{err: err, Job: job}
+}
+
+func New(method, url string, opts ...Option) (job *Job) {
+	job = &Job{Method: method, Url: url, Data: make(M), Query: make(M), Header: UserAgentHeader.Clone(), Cookie: new(Cookie)}
+	for _, opt := range opts {
+		opt(job)
+	}
+	return
+}
+
+func NewGet(url string, opts ...Option) *Job {
+	return New(http.MethodGet, url, opts...)
+}
+
+func NewPost(url string, opts ...Option) *Job {
+	return New(http.MethodPost, url, opts...)
 }
