@@ -17,6 +17,11 @@ type Job struct {
 	Client http.Client `form:"-"      yaml:"-"      json:"-" gorm:"-"`
 }
 
+func (job *Job) SetURL(url string) *Job {
+	job.Url = url
+	return job
+}
+
 func (job *Job) SetData(data M) *Job {
 	job.Data = data
 	return job
@@ -39,19 +44,13 @@ func (job *Job) SetReferer(referer string) *Job {
 
 func (job *Job) SetCookie(cookie string) *Job {
 	job.Cookie = &Cookie{cookie}
-	return job
-}
-
-func (job *Job) setCookie() {
-	if job.Cookie == nil {
-		return
-	}
 	if job.Client.Jar == nil {
 		job.Client.Jar = job.Cookie
-		return
+		return job
 	}
 	cookieURL, _ := url.Parse(job.Url)
 	job.Client.Jar.SetCookies(cookieURL, job.Cookie.Cookies(cookieURL))
+	return job
 }
 
 // 发送请求
@@ -63,7 +62,6 @@ func (job *Job) DoWithContext(ctx ...context.Context) *Response {
 	for _, c := range ctx {
 		req = req.WithContext(c)
 	}
-	job.setCookie()
 	resp, err := job.Client.Do(req)
 	if err != nil {
 		return job.error(err)
@@ -74,6 +72,14 @@ func (job *Job) DoWithContext(ctx ...context.Context) *Response {
 // 发送请求
 func (job *Job) Do() *Response {
 	return job.DoWithContext()
+}
+
+func (job *Job) Plain() (*http.Response, error) {
+	req, err := job.Request()
+	if err != nil {
+		return nil, err
+	}
+	return job.Client.Do(req)
 }
 
 func (job *Job) Request() (req *http.Request, err error) {

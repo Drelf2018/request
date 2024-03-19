@@ -19,13 +19,21 @@ func RemoveEmptyPort(host string) string {
 	return host
 }
 
-func ModifyURL(req *http.Request, url string) error {
+func GenerateURL(url string) (*urlpkg.URL, error) {
 	// 解析新的URL
 	parsedURL, err := urlpkg.Parse(url)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	parsedURL.Host = RemoveEmptyPort(parsedURL.Host)
+	return parsedURL, nil
+}
+
+func ModifyURL(req *http.Request, url string) error {
+	parsedURL, err := GenerateURL(url)
+	if err != nil {
+		return err
+	}
 	// 保留原有的查询参数
 	parsedURL.RawQuery = req.URL.RawQuery
 	// 更新请求的URL字段
@@ -59,7 +67,6 @@ func NewSessionFromJob(job *Job) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	job.setCookie()
 	return &Session{
 		Request: req,
 		Client:  job.Client,

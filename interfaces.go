@@ -15,3 +15,7 @@ type CookieJar interface {
 	ScanValuer
 	http.CookieJar
 }
+
+type DownloaderInterface interface {
+	Get(url string) (*http.Response, error)
+}
