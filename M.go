@@ -105,25 +105,19 @@ func (m M) GormDataType() string {
 	return "jsonmap"
 }
 
-func (m M) Buffer() *bytes.Buffer {
-	l := len(m)
+func (m M) Read(p []byte) (int, error) {
 	b := new(bytes.Buffer)
 	for k, v := range m {
-		l--
 		b.WriteString(k)
 		b.WriteByte('=')
 		b.WriteString(v)
-		if l != 0 {
-			b.WriteByte('&')
-		}
+		b.WriteByte('&')
 	}
-	return b
-}
-
-func (m M) Read(p []byte) (n int, err error) {
-	n, _ = m.Buffer().Read(p)
-	err = io.EOF
-	return
+	if b.Len() != 0 {
+		b.Truncate(b.Len() - 1)
+	}
+	n, _ := b.Read(p)
+	return n, io.EOF
 }
 
 func (m M) Encode() string {
