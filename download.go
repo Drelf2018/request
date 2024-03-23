@@ -44,8 +44,6 @@ func SplitName(name string) (protocol, path string) {
 type DownloadSystem struct {
 	Root       string
 	Downloader DownloaderInterface
-
-	AfterWrite func(fullpath, url string, content []byte) error
 }
 
 func (ds DownloadSystem) Open(name string) (http.File, error) {
@@ -82,21 +80,13 @@ func (ds DownloadSystem) Open(name string) (http.File, error) {
 		return nil, err
 	}
 
-	if ds.AfterWrite != nil {
-		err = ds.AfterWrite(fullpath, url, content)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return os.Open(fullpath)
 }
 
-func DefaultDownloadSystem(root string, afterWrite func(fullpath, url string, content []byte) error) *DownloadSystem {
+func DefaultDownloadSystem(root string) *DownloadSystem {
 	return &DownloadSystem{
 		Root:       root,
 		Downloader: http.DefaultClient,
-		AfterWrite: afterWrite,
 	}
 }
 

@@ -8,5 +8,5 @@ import (
 )
 
 func TestFileSystem(t *testing.T) {
-	http.ListenAndServe("localhost:8080", http.FileServer(request.DefaultDownloadSystem("./downloads", nil)))
+	http.ListenAndServe("localhost:8080", http.FileServer(request.DefaultDownloadSystem("./downloads")))
 }
