@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -126,7 +127,11 @@ func (m M) Read(p []byte) (n int, err error) {
 }
 
 func (m M) Encode() string {
-	return m.Buffer().String()
+	u := make(url.Values)
+	for k, v := range m {
+		u[k] = []string{v}
+	}
+	return u.Encode()
 }
 
 func (m M) WriteHeader(header http.Header) {
