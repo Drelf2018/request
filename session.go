@@ -80,7 +80,12 @@ func (t *TypeSession[T]) Session() *Session {
 }
 
 func (t *TypeSession[T]) Do() (out T, err error) {
-	err = t.Session().Do("").Json(&out)
+	resp := t.Session().Do("")
+	err = resp.err
+	if err != nil {
+		return
+	}
+	err = resp.Json(&out)
 	return
 }
 
