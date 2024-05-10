@@ -71,6 +71,7 @@ func (ds DownloadSystem) Open(name string) (http.File, error) {
 	}
 
 	content, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
